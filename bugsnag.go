@@ -27,8 +27,15 @@ type BugsnagReporter struct {
 }
 
 func (er *BugsnagReporter) Report(ctx context.Context, newErr error) {
+	depth := 2
+	if IsNestedReporter(ctx) {
+		depth = 1
+	}
+
+	payload := er.newPayload(depth, newErr)
+
 	var b bytes.Buffer
-	err := json.NewEncoder(&b).Encode(er.newPayload(newErr))
+	err := json.NewEncoder(&b).Encode(payload)
 	if err != nil {
 		er.Backup.Report(ctx, err)
 		return
@@ -64,7 +71,7 @@ func (er *BugsnagReporter) Report(ctx context.Context, newErr error) {
 	}
 }
 
-func (er *BugsnagReporter) newPayload(err error) map[string]interface{} {
+func (er *BugsnagReporter) newPayload(depth int, err error) map[string]interface{} {
 	c := stack.Trace()
 
 	host, _ := os.Hostname()
@@ -82,7 +89,7 @@ func (er *BugsnagReporter) newPayload(err error) map[string]interface{} {
 				"PayloadVersion": "2",
 				"exceptions": []map[string]interface{}{
 					{
-						"errorClass": stack.Caller(2).String(),
+						"errorClass": stack.Caller(depth).String(),
 						"message":    fmt.Sprint(err),
 						"stacktrace": formatStack(c),
 					},

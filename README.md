@@ -60,9 +60,8 @@ func main() {
 
 Bugsnack includes some more exotic reporter-chaining functions, such as 
 `bugsnack.MultiReporter`, which can send the same error to multiple 
-`bugsnack.ErrorReporter`s at the same time, and `bugsnack.SlackReporter`
-which will write every error into a Slack webhook URL (really don't do this 
-though).
+`bugsnack.ErrorReporter`s at the same time. Chaining `bugsnack.ErrorReporter`s 
+is a powerful way to ensure you track all the errors within your application.
 
 # LICENSE
 
