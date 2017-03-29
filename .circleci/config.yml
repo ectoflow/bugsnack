@@ -1,0 +1,15 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: golang:1.8
+
+    working_directory: /go/src/github.com/fromatob/bugsnack
+
+    steps:
+      - checkout
+
+      - run:
+          name: run tests
+          command: go test -v -race ./...
+

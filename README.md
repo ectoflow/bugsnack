@@ -49,7 +49,7 @@ func main() {
     //    APIKey: "put your api key here",
     //    ReleaseStage: "production",
     //    Doer: http.DefaultClient,
-    //    Backup: &bugsnack.WriterReporter{Writer: os.Stdout}
+    //    Backup: &bugsnack.WriterReporter{Writer: os.Stdout},
     //})
     go Work(&bugsnack.WriterReporter{Writer: os.Stdout})
     // do something blocking while the background routine runs
