@@ -37,5 +37,4 @@ func TestNestedErrorReporter(t *testing.T) {
 		}}}
 
 	er.Report(context.Background(), errors.New("bugsnag multireporter test"))
-
 }
