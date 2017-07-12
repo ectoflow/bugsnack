@@ -101,7 +101,6 @@ func (er *BugsnagReporter) newPayload(depth int, err error) map[string]interface
 				"device": map[string]interface{}{
 					"hostname": host,
 				},
-				"context": fmt.Sprint(reflect.TypeOf(err)),
 			},
 		},
 	}
