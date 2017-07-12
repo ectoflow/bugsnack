@@ -89,9 +89,9 @@ func (er *BugsnagReporter) newPayload(depth int, err error) map[string]interface
 				"PayloadVersion": "2",
 				"exceptions": []map[string]interface{}{
 					{
-						"errorClass": err.Error(),
 						"message":    stack.Caller(depth).String(),
 						"stacktrace": formatStack(c),
+						"errorClass": reflect.TypeOf(err).String(),
 					},
 				},
 				"severity": "error",
