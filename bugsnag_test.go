@@ -2,10 +2,11 @@ package bugsnack
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/fromatob/bugsnack/error"
 )
 
 func TestErrorReporter(t *testing.T) {
@@ -20,7 +21,7 @@ func TestErrorReporter(t *testing.T) {
 		Backup:       nil,
 	}
 
-	er.Report(context.Background(), errors.New("bugsnag test"))
+	er.Report(context.Background(), error.New("bugsnag test"))
 }
 
 func TestNestedErrorReporter(t *testing.T) {
@@ -36,5 +37,5 @@ func TestNestedErrorReporter(t *testing.T) {
 			Backup:       nil,
 		}}}
 
-	er.Report(context.Background(), errors.New("bugsnag multireporter test"))
+	er.Report(context.Background(), error.New("bugsnag multireporter test"))
 }

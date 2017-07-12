@@ -5,25 +5,13 @@ import (
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/fromatob/bugsnack/error"
 )
 
 // An ErrorReporter is used to Report errors
 type ErrorReporter interface {
-	Report(ctx context.Context, err error)
-}
-
-// nestedReporter is used to notify ErrorReporters if they
-// need to use additional stack depth
-type nestedReporter struct{}
-
-// IsNestedReporter informs a Reporter if it is under one additional level of
-// call depth
-func IsNestedReporter(ctx context.Context) bool {
-	bo, ok := ctx.Value(nestedReporter{}).(bool)
-	if ok {
-		return bo
-	}
-	return false
+	Report(ctx context.Context, err *error.Error)
 }
 
 // A MultiReporter is capable of sending a single error
@@ -34,9 +22,7 @@ type MultiReporter struct {
 
 // Report sends the same error to all underlying Reporters
 // concurrently.
-func (mr *MultiReporter) Report(ctx context.Context, err error) {
-	ctx = context.WithValue(ctx, nestedReporter{}, true)
-
+func (mr *MultiReporter) Report(ctx context.Context, err *error.Error) {
 	var wg sync.WaitGroup
 	for _, er := range mr.Reporters {
 		wg.Add(1)
@@ -55,7 +41,7 @@ type WriterReporter struct {
 
 // Report printf's the error using %s, then writes it to the
 // underlying writer
-func (wr *WriterReporter) Report(_ context.Context, err error) {
+func (wr *WriterReporter) Report(_ context.Context, err *error.Error) {
 	if wr.Writer == nil {
 		return
 	}

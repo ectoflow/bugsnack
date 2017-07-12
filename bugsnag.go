@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,8 +12,11 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/fromatob/bugsnack/error"
 	"github.com/fromatob/bugsnack/internal/stack"
 )
+
+const clientVersion = "0.0.2"
 
 // BugsnagReporter is an implementation of ErrorReporter that fires to
 // BugSnag
@@ -26,24 +28,19 @@ type BugsnagReporter struct {
 	Backup ErrorReporter
 }
 
-func (er *BugsnagReporter) Report(ctx context.Context, newErr error) {
-	depth := 2
-	if IsNestedReporter(ctx) {
-		depth = 1
-	}
-
-	payload := er.newPayload(depth, newErr)
+func (er *BugsnagReporter) Report(ctx context.Context, newErr *error.Error) {
+	payload := er.newPayload(newErr)
 
 	var b bytes.Buffer
 	err := json.NewEncoder(&b).Encode(payload)
 	if err != nil {
-		er.Backup.Report(ctx, err)
+		er.Backup.Report(ctx, error.New(err))
 		return
 	}
 
 	req, err := http.NewRequest(http.MethodPost, "https://notify.bugsnag.com", &b)
 	if err != nil {
-		er.Backup.Report(ctx, err)
+		er.Backup.Report(ctx, error.New(err))
 		return
 	}
 	req = req.WithContext(ctx)
@@ -51,29 +48,27 @@ func (er *BugsnagReporter) Report(ctx context.Context, newErr error) {
 
 	resp, err := er.Doer.Do(req)
 	if err != nil {
-		er.Backup.Report(ctx, err)
+		er.Backup.Report(ctx, error.New(err))
 		return
 	}
 	defer func() {
 		_, err = io.Copy(ioutil.Discard, io.LimitReader(resp.Body, 1024))
 		if err != nil {
-			er.Backup.Report(ctx, err)
+			er.Backup.Report(ctx, error.New(err))
 		}
 		err = resp.Body.Close()
 		if err != nil {
-			er.Backup.Report(ctx, err)
+			er.Backup.Report(ctx, error.New(err))
 		}
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		er.Backup.Report(ctx, errors.New("could not report to bugsnag"))
+		er.Backup.Report(ctx, error.New("could not report to bugsnag"))
 		return
 	}
 }
 
-func (er *BugsnagReporter) newPayload(depth int, err error) map[string]interface{} {
-	c := stack.Trace()
-
+func (er *BugsnagReporter) newPayload(err *error.Error) map[string]interface{} {
 	host, _ := os.Hostname()
 	return map[string]interface{}{
 		"apiKey": er.APIKey,
@@ -81,7 +76,7 @@ func (er *BugsnagReporter) newPayload(depth int, err error) map[string]interface
 		"notifier": map[string]interface{}{
 			"name":    "Bugsnack/Bugsnag",
 			"url":     "https://github.com/fromatob/bugsnack",
-			"version": "0.0.1",
+			"version": clientVersion,
 		},
 
 		"events": []map[string]interface{}{
@@ -89,9 +84,9 @@ func (er *BugsnagReporter) newPayload(depth int, err error) map[string]interface
 				"PayloadVersion": "2",
 				"exceptions": []map[string]interface{}{
 					{
-						"message":    stack.Caller(depth).String(),
-						"stacktrace": formatStack(c),
 						"errorClass": reflect.TypeOf(err).String(),
+						"message":    err.Error(),
+						"stacktrace": formatStack(err.Stacktrace),
 					},
 				},
 				"severity": "error",
