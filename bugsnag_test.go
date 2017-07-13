@@ -4,9 +4,11 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/fromatob/bugsnack/error"
+	"github.com/fromatob/bugsnack/hashstruct"
 )
 
 func TestErrorReporter(t *testing.T) {
@@ -21,7 +23,22 @@ func TestErrorReporter(t *testing.T) {
 		Backup:       nil,
 	}
 
-	er.Report(context.Background(), error.New("bugsnag test"))
+	er.Report(context.Background(), error.New("bugsnag test"), &bugsnagMetadata{
+		groupingHash: "net.timeout",
+		eventMetadata: &hashstruct.Hash{
+			"data": hashstruct.Hash{
+				"os": runtime.GOOS,
+			},
+			"key1": "value1",
+			"key2": "value2",
+			"arbitraryData": hashstruct.Hash{
+				"goVersion": runtime.Version(),
+				"nested": hashstruct.Hash{
+					"nestedKey": "value",
+				},
+			},
+		},
+	})
 }
 
 func TestNestedErrorReporter(t *testing.T) {
@@ -37,5 +54,5 @@ func TestNestedErrorReporter(t *testing.T) {
 			Backup:       nil,
 		}}}
 
-	er.Report(context.Background(), error.New("bugsnag multireporter test"))
+	er.Report(context.Background(), error.New("bugsnag multireporter test"), &bugsnagMetadata{})
 }

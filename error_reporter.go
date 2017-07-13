@@ -11,7 +11,7 @@ import (
 
 // An ErrorReporter is used to Report errors
 type ErrorReporter interface {
-	Report(ctx context.Context, err *error.Error)
+	Report(ctx context.Context, err *error.Error, metadata *bugsnagMetadata)
 }
 
 // A MultiReporter is capable of sending a single error
@@ -22,13 +22,13 @@ type MultiReporter struct {
 
 // Report sends the same error to all underlying Reporters
 // concurrently.
-func (mr *MultiReporter) Report(ctx context.Context, err *error.Error) {
+func (mr *MultiReporter) Report(ctx context.Context, err *error.Error, metadata *bugsnagMetadata) {
 	var wg sync.WaitGroup
 	for _, er := range mr.Reporters {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, er ErrorReporter) {
 			defer wg.Done()
-			er.Report(ctx, err)
+			er.Report(ctx, err, metadata)
 		}(&wg, er)
 	}
 	wg.Wait()
