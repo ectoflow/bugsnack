@@ -32,7 +32,7 @@ func Work(er bugsnack.ErrorReporter) {
     for {
         _, err := DoSomethingThatMightBreak()
         if err != nil {
-            er.Report(context.TODO(), err, &bugsnagMetadata{})
+            er.Report(context.TODO(), err)
             continue
         }
         time.Sleep(time.Second)
@@ -67,7 +67,7 @@ func Work(er bugsnack.ErrorReporter) {
     for {
         _, err := DoSomethingThatMightBreak()
         if err != nil {
-            er.Report(context.TODO(), err, &bugsnagMetadata{
+            er.ReportWithMetadata(context.TODO(), err, &bugsnagMetadata{
                 errorClass: "network.timeout",
                 context: "fetchWorker",
                 groupingHash: "timeouts", // https://docs.bugsnag.com/product/error-grouping/#custom-grouping-hash

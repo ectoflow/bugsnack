@@ -36,19 +36,19 @@ type bugsnagMetadata struct {
 	eventMetadata *hashstruct.Hash
 }
 
-func (er *BugsnagReporter) Report(ctx context.Context, newErr *error.Error, metadata *bugsnagMetadata) {
-	payload := er.newPayload(newErr, metadata)
+func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interface{}, metadata *bugsnagMetadata) {
+	payload := er.newPayload(error.New(newErr), metadata)
 
 	var b bytes.Buffer
 	err := json.NewEncoder(&b).Encode(payload)
 	if err != nil {
-		er.Backup.Report(ctx, error.New(err), &bugsnagMetadata{})
+		er.Backup.Report(ctx, err)
 		return
 	}
 
 	req, err := http.NewRequest(http.MethodPost, "https://notify.bugsnag.com", &b)
 	if err != nil {
-		er.Backup.Report(ctx, error.New(err), &bugsnagMetadata{})
+		er.Backup.Report(ctx, err)
 		return
 	}
 	req = req.WithContext(ctx)
@@ -56,62 +56,86 @@ func (er *BugsnagReporter) Report(ctx context.Context, newErr *error.Error, meta
 
 	resp, err := er.Doer.Do(req)
 	if err != nil {
-		er.Backup.Report(ctx, error.New(err), &bugsnagMetadata{})
+		er.Backup.Report(ctx, err)
 		return
 	}
 	defer func() {
 		_, err = io.Copy(ioutil.Discard, io.LimitReader(resp.Body, 1024))
 		if err != nil {
-			er.Backup.Report(ctx, error.New(err), &bugsnagMetadata{})
+			er.Backup.Report(ctx, err)
 		}
 		err = resp.Body.Close()
 		if err != nil {
-			er.Backup.Report(ctx, error.New(err), &bugsnagMetadata{})
+			er.Backup.Report(ctx, err)
 		}
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		er.Backup.Report(ctx, error.New("could not report to bugsnag"), &bugsnagMetadata{})
+		er.Backup.Report(ctx, error.New("could not report to bugsnag"))
 		return
 	}
+}
+
+func (er *BugsnagReporter) Report(ctx context.Context, newErr interface{}) {
+	er.ReportWithMetadata(ctx, newErr, &bugsnagMetadata{})
 }
 
 func (er *BugsnagReporter) newPayload(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
 	populateMetadata(metadata, err)
 
-	host, _ := os.Hostname()
 	return &hashstruct.Hash{
 		"apiKey": er.APIKey,
 
-		"notifier": hashstruct.Hash{
+		"notifier": &hashstruct.Hash{
 			"name":    "Bugsnack/Bugsnag",
 			"url":     "https://github.com/fromatob/bugsnack",
 			"version": clientVersion,
 		},
 
-		"events": []hashstruct.Hash{
-			{
-				"PayloadVersion": "2",
-				"exceptions": []hashstruct.Hash{
-					{
-						"errorClass": metadata.errorClass,
-						"message":    err.Error(),
-						"stacktrace": formatStack(err.Stacktrace),
-					},
-				},
-				"severity": metadata.severity,
-				"app": hashstruct.Hash{
-					"releaseStage": er.ReleaseStage,
-				},
-				"device": hashstruct.Hash{
-					"hostname": host,
-				},
-				"context":      metadata.context,
-				"groupingHash": metadata.groupingHash,
-				"metaData":     metadata.eventMetadata,
-			},
+		"events": []*hashstruct.Hash{
+			er.newEvent(err, metadata),
 		},
 	}
+}
+
+func (er *BugsnagReporter) newEvent(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
+	host, _ := os.Hostname()
+
+	event := hashstruct.Hash{
+		"PayloadVersion": "2",
+		"exceptions": []*hashstruct.Hash{
+			{
+				"errorClass": metadata.errorClass,
+				"message":    err.Error(),
+				"stacktrace": formatStack(err.Stacktrace),
+			},
+		},
+		"severity": metadata.severity,
+		"app": &hashstruct.Hash{
+			"releaseStage": er.ReleaseStage,
+		},
+		"device": &hashstruct.Hash{
+			"hostname": host,
+		},
+	}
+
+	if "" != metadata.groupingHash {
+		event["groupingHash"] = metadata.groupingHash
+	}
+
+	if "" != metadata.context {
+		event["context"] = metadata.context
+	}
+
+	if !isZeroInterface(metadata.eventMetadata) {
+		event["metaData"] = metadata.eventMetadata
+	}
+
+	return &event
+}
+
+func isZeroInterface(i interface{}) bool {
+	return i == reflect.Zero(reflect.TypeOf(i)).Interface()
 }
 
 func populateMetadata(metadata *bugsnagMetadata, err *error.Error) {
