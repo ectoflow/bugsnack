@@ -36,6 +36,15 @@ type bugsnagMetadata struct {
 	eventMetadata *hashstruct.Hash
 }
 
+func (metadata *bugsnagMetadata) populateMetadata(err *error.Error) {
+	if metadata.errorClass == "" {
+		metadata.errorClass = reflect.TypeOf(err).String()
+	}
+	if metadata.severity == "" {
+		metadata.severity = "error"
+	}
+}
+
 func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interface{}, metadata *bugsnagMetadata) {
 	payload := er.newPayload(error.New(newErr), metadata)
 
@@ -81,7 +90,7 @@ func (er *BugsnagReporter) Report(ctx context.Context, newErr interface{}) {
 }
 
 func (er *BugsnagReporter) newPayload(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
-	populateMetadata(metadata, err)
+	metadata.populateMetadata(err)
 
 	return &hashstruct.Hash{
 		"apiKey": er.APIKey,
@@ -132,15 +141,6 @@ func (er *BugsnagReporter) newEvent(err *error.Error, metadata *bugsnagMetadata)
 	}
 
 	return &event
-}
-
-func populateMetadata(metadata *bugsnagMetadata, err *error.Error) {
-	if metadata.errorClass == "" {
-		metadata.errorClass = reflect.TypeOf(err).String()
-	}
-	if metadata.severity == "" {
-		metadata.severity = "error"
-	}
 }
 
 func formatStack(s stack.CallStack) []hashstruct.Hash {
