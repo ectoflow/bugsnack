@@ -7,8 +7,6 @@ import (
 	"os"
 	"runtime"
 	"testing"
-
-	"github.com/fromatob/bugsnack/hashstruct"
 )
 
 func TestErrorReporter(t *testing.T) {
@@ -27,15 +25,15 @@ func TestErrorReporter(t *testing.T) {
 
 	er.ReportWithMetadata(context.Background(), NewError("bugsnag test"), &bugsnagMetadata{
 		groupingHash: "net.timeout",
-		eventMetadata: &hashstruct.Hash{
-			"data": hashstruct.Hash{
+		eventMetadata: &map[string]interface{}{
+			"data": map[string]interface{}{
 				"os": runtime.GOOS,
 			},
 			"key1": "value1",
 			"key2": "value2",
-			"arbitraryData": hashstruct.Hash{
+			"arbitraryData": map[string]interface{}{
 				"goVersion": runtime.Version(),
-				"nested": hashstruct.Hash{
+				"nested": map[string]interface{}{
 					"nestedKey": "value",
 				},
 			},

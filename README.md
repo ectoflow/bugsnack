@@ -72,15 +72,15 @@ func Work(er bugsnack.ErrorReporter) {
                 context: "fetchWorker",
                 groupingHash: "timeouts", // https://docs.bugsnag.com/product/error-grouping/#custom-grouping-hash
                 severity: "info",
-                eventMetadata: &hashstruct.Hash{
-                    "data": hashstruct.Hash{
+                eventMetadata: &map[string]interface{}{
+                    "data": map[string]interface{}{
                         "os": runtime.GOOS,
                     },
                     "key1": "value1",
                     "key2": "value2",
-                    "arbitraryData": hashstruct.Hash{
+                    "arbitraryData": map[string]interface{}{
                         "goVersion": runtime.Version(),
-                        "nested": hashstruct.Hash{
+                        "nested": map[string]interface{}{
                             "nestedKey": "value",
                         },
                     },

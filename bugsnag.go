@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/fromatob/bugsnack/hashstruct"
 	"github.com/fromatob/bugsnack/internal/stack"
 )
 
@@ -32,7 +31,7 @@ type bugsnagMetadata struct {
 	context       string
 	groupingHash  string
 	severity      string
-	eventMetadata *hashstruct.Hash
+	eventMetadata *map[string]interface{}
 }
 
 func (metadata *bugsnagMetadata) populateMetadata(err *Error) {
@@ -88,30 +87,30 @@ func (er *BugsnagReporter) Report(ctx context.Context, newErr interface{}) {
 	er.ReportWithMetadata(ctx, newErr, &bugsnagMetadata{})
 }
 
-func (er *BugsnagReporter) newPayload(err *Error, metadata *bugsnagMetadata) *hashstruct.Hash {
+func (er *BugsnagReporter) newPayload(err *Error, metadata *bugsnagMetadata) *map[string]interface{} {
 	metadata.populateMetadata(err)
 
-	return &hashstruct.Hash{
+	return &map[string]interface{}{
 		"apiKey": er.APIKey,
 
-		"notifier": &hashstruct.Hash{
+		"notifier": &map[string]interface{}{
 			"name":    "Bugsnack/Bugsnag",
 			"url":     "https://github.com/fromatob/bugsnack",
 			"version": clientVersion,
 		},
 
-		"events": []*hashstruct.Hash{
+		"events": []*map[string]interface{}{
 			er.newEvent(err, metadata),
 		},
 	}
 }
 
-func (er *BugsnagReporter) newEvent(err *Error, metadata *bugsnagMetadata) *hashstruct.Hash {
+func (er *BugsnagReporter) newEvent(err *Error, metadata *bugsnagMetadata) *map[string]interface{} {
 	host, _ := os.Hostname()
 
-	event := hashstruct.Hash{
+	event := map[string]interface{}{
 		"PayloadVersion": "2",
-		"exceptions": []*hashstruct.Hash{
+		"exceptions": []*map[string]interface{}{
 			{
 				"errorClass": metadata.errorClass,
 				"message":    err.Error(),
@@ -119,10 +118,10 @@ func (er *BugsnagReporter) newEvent(err *Error, metadata *bugsnagMetadata) *hash
 			},
 		},
 		"severity": metadata.severity,
-		"app": &hashstruct.Hash{
+		"app": &map[string]interface{}{
 			"releaseStage": er.ReleaseStage,
 		},
-		"device": &hashstruct.Hash{
+		"device": &map[string]interface{}{
 			"hostname": host,
 		},
 	}
@@ -135,19 +134,23 @@ func (er *BugsnagReporter) newEvent(err *Error, metadata *bugsnagMetadata) *hash
 		event["context"] = metadata.context
 	}
 
-	if !metadata.eventMetadata.IsZeroInterface() {
+	if !IsZeroInterface(metadata.eventMetadata) {
 		event["metaData"] = metadata.eventMetadata
 	}
 
 	return &event
 }
 
-func formatStack(s stack.CallStack) []hashstruct.Hash {
-	var o []hashstruct.Hash
+func IsZeroInterface(i interface{}) bool {
+	return i == reflect.Zero(reflect.TypeOf(i)).Interface()
+}
+
+func formatStack(s stack.CallStack) []map[string]interface{} {
+	var o []map[string]interface{}
 
 	for _, f := range s {
 		line, _ := strconv.Atoi(fmt.Sprintf("%d", f))
-		o = append(o, hashstruct.Hash{
+		o = append(o, map[string]interface{}{
 			"method":     fmt.Sprintf("%n", f),
 			"file":       fmt.Sprintf("%s", f),
 			"lineNumber": line,
