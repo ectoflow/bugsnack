@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,8 +12,12 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/fromatob/bugsnack/error"
+	"github.com/fromatob/bugsnack/hashstruct"
 	"github.com/fromatob/bugsnack/internal/stack"
 )
+
+const clientVersion = "0.0.2"
 
 // BugsnagReporter is an implementation of ErrorReporter that fires to
 // BugSnag
@@ -25,14 +28,25 @@ type BugsnagReporter struct {
 
 	Backup ErrorReporter
 }
+type bugsnagMetadata struct {
+	errorClass    string
+	context       string
+	groupingHash  string
+	severity      string
+	eventMetadata *hashstruct.Hash
+}
 
-func (er *BugsnagReporter) Report(ctx context.Context, newErr error) {
-	depth := 2
-	if IsNestedReporter(ctx) {
-		depth = 1
+func (metadata *bugsnagMetadata) populateMetadata(err *error.Error) {
+	if metadata.errorClass == "" {
+		metadata.errorClass = reflect.TypeOf(err).String()
 	}
+	if metadata.severity == "" {
+		metadata.severity = "error"
+	}
+}
 
-	payload := er.newPayload(depth, newErr)
+func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interface{}, metadata *bugsnagMetadata) {
+	payload := er.newPayload(error.New(newErr), metadata)
 
 	var b bytes.Buffer
 	err := json.NewEncoder(&b).Encode(payload)
@@ -66,53 +80,75 @@ func (er *BugsnagReporter) Report(ctx context.Context, newErr error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		er.Backup.Report(ctx, errors.New("could not report to bugsnag"))
+		er.Backup.Report(ctx, error.New("could not report to bugsnag"))
 		return
 	}
 }
 
-func (er *BugsnagReporter) newPayload(depth int, err error) map[string]interface{} {
-	c := stack.Trace()
+func (er *BugsnagReporter) Report(ctx context.Context, newErr interface{}) {
+	er.ReportWithMetadata(ctx, newErr, &bugsnagMetadata{})
+}
 
-	host, _ := os.Hostname()
-	return map[string]interface{}{
+func (er *BugsnagReporter) newPayload(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
+	metadata.populateMetadata(err)
+
+	return &hashstruct.Hash{
 		"apiKey": er.APIKey,
 
-		"notifier": map[string]interface{}{
+		"notifier": &hashstruct.Hash{
 			"name":    "Bugsnack/Bugsnag",
 			"url":     "https://github.com/fromatob/bugsnack",
-			"version": "0.0.1",
+			"version": clientVersion,
 		},
 
-		"events": []map[string]interface{}{
-			{
-				"PayloadVersion": "2",
-				"exceptions": []map[string]interface{}{
-					{
-						"errorClass": err.Error(),
-						"message":    stack.Caller(depth).String(),
-						"stacktrace": formatStack(c),
-					},
-				},
-				"severity": "error",
-				"app": map[string]interface{}{
-					"releaseStage": er.ReleaseStage,
-				},
-				"device": map[string]interface{}{
-					"hostname": host,
-				},
-				"context": fmt.Sprint(reflect.TypeOf(err)),
-			},
+		"events": []*hashstruct.Hash{
+			er.newEvent(err, metadata),
 		},
 	}
 }
 
-func formatStack(s stack.CallStack) []map[string]interface{} {
-	var o []map[string]interface{}
+func (er *BugsnagReporter) newEvent(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
+	host, _ := os.Hostname()
+
+	event := hashstruct.Hash{
+		"PayloadVersion": "2",
+		"exceptions": []*hashstruct.Hash{
+			{
+				"errorClass": metadata.errorClass,
+				"message":    err.Error(),
+				"stacktrace": formatStack(err.Stacktrace),
+			},
+		},
+		"severity": metadata.severity,
+		"app": &hashstruct.Hash{
+			"releaseStage": er.ReleaseStage,
+		},
+		"device": &hashstruct.Hash{
+			"hostname": host,
+		},
+	}
+
+	if "" != metadata.groupingHash {
+		event["groupingHash"] = metadata.groupingHash
+	}
+
+	if "" != metadata.context {
+		event["context"] = metadata.context
+	}
+
+	if !metadata.eventMetadata.IsZeroInterface() {
+		event["metaData"] = metadata.eventMetadata
+	}
+
+	return &event
+}
+
+func formatStack(s stack.CallStack) []hashstruct.Hash {
+	var o []hashstruct.Hash
 
 	for _, f := range s {
 		line, _ := strconv.Atoi(fmt.Sprintf("%d", f))
-		o = append(o, map[string]interface{}{
+		o = append(o, hashstruct.Hash{
 			"method":     fmt.Sprintf("%n", f),
 			"file":       fmt.Sprintf("%s", f),
 			"lineNumber": line,

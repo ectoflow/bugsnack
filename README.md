@@ -56,6 +56,46 @@ func main() {
 }
 ```
 
+# Metadata Support
+
+You may provide optional `errorClass`, `context`, `groupingHash`, `severity` and arbitrary `eventMetadata`:
+
+```go
+import "runtime"
+
+func Work(er bugsnack.ErrorReporter) {
+    for {
+        _, err := DoSomethingThatMightBreak()
+        if err != nil {
+            er.ReportWithMetadata(context.TODO(), err, &bugsnagMetadata{
+                errorClass: "network.timeout",
+                context: "fetchWorker",
+                groupingHash: "timeouts", // https://docs.bugsnag.com/product/error-grouping/#custom-grouping-hash
+                severity: "info",
+                eventMetadata: &hashstruct.Hash{
+                    "data": hashstruct.Hash{
+                        "os": runtime.GOOS,
+                    },
+                    "key1": "value1",
+                    "key2": "value2",
+                    "arbitraryData": hashstruct.Hash{
+                        "goVersion": runtime.Version(),
+                        "nested": hashstruct.Hash{
+                            "nestedKey": "value",
+                        },
+                    },
+                },
+            })
+            continue
+        }
+        time.Sleep(time.Second)
+    }
+}
+```
+
+Please follow docs at https://docs.bugsnag.com/api/error-reporting/#json-payload
+
+
 # Advanced Usage
 
 Bugsnack includes some more exotic reporter-chaining functions, such as 
