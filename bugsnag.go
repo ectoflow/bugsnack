@@ -127,15 +127,11 @@ func (er *BugsnagReporter) newEvent(err *error.Error, metadata *bugsnagMetadata)
 		event["context"] = metadata.context
 	}
 
-	if !isZeroInterface(metadata.eventMetadata) {
+	if !metadata.eventMetadata.IsZeroInterface() {
 		event["metaData"] = metadata.eventMetadata
 	}
 
 	return &event
-}
-
-func isZeroInterface(i interface{}) bool {
-	return i == reflect.Zero(reflect.TypeOf(i)).Interface()
 }
 
 func populateMetadata(metadata *bugsnagMetadata, err *error.Error) {
