@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/fromatob/bugsnack/error"
 	"github.com/fromatob/bugsnack/hashstruct"
 	"github.com/fromatob/bugsnack/internal/stack"
 )
@@ -36,7 +35,7 @@ type bugsnagMetadata struct {
 	eventMetadata *hashstruct.Hash
 }
 
-func (metadata *bugsnagMetadata) populateMetadata(err *error.Error) {
+func (metadata *bugsnagMetadata) populateMetadata(err *Error) {
 	if metadata.errorClass == "" {
 		metadata.errorClass = reflect.TypeOf(err).String()
 	}
@@ -46,7 +45,7 @@ func (metadata *bugsnagMetadata) populateMetadata(err *error.Error) {
 }
 
 func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interface{}, metadata *bugsnagMetadata) {
-	payload := er.newPayload(error.New(newErr), metadata)
+	payload := er.newPayload(NewError(newErr), metadata)
 
 	var b bytes.Buffer
 	err := json.NewEncoder(&b).Encode(payload)
@@ -80,7 +79,7 @@ func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interf
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		er.Backup.Report(ctx, error.New("could not report to bugsnag"))
+		er.Backup.Report(ctx, NewError("could not report to bugsnag"))
 		return
 	}
 }
@@ -89,7 +88,7 @@ func (er *BugsnagReporter) Report(ctx context.Context, newErr interface{}) {
 	er.ReportWithMetadata(ctx, newErr, &bugsnagMetadata{})
 }
 
-func (er *BugsnagReporter) newPayload(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
+func (er *BugsnagReporter) newPayload(err *Error, metadata *bugsnagMetadata) *hashstruct.Hash {
 	metadata.populateMetadata(err)
 
 	return &hashstruct.Hash{
@@ -107,7 +106,7 @@ func (er *BugsnagReporter) newPayload(err *error.Error, metadata *bugsnagMetadat
 	}
 }
 
-func (er *BugsnagReporter) newEvent(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
+func (er *BugsnagReporter) newEvent(err *Error, metadata *bugsnagMetadata) *hashstruct.Hash {
 	host, _ := os.Hostname()
 
 	event := hashstruct.Hash{

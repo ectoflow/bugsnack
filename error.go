@@ -1,4 +1,4 @@
-package error
+package bugsnack
 
 import (
 	"errors"
@@ -22,7 +22,7 @@ func (b *Error) Error() string {
 // then it will be used directly. Possible values are: string, error, *Error
 // Any other types will be processed by fallback and converted to an error with
 // its string representation
-func New(e interface{}) *Error {
+func NewError(e interface{}) *Error {
 	var err error
 	// Arrays start at 1 ¯\_(ツ)_/¯
 	stacktrace := stack.Trace()[1:]

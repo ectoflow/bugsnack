@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"sync"
-
-	"github.com/fromatob/bugsnack/error"
 )
 
 // An ErrorReporter is used to Report errors
@@ -41,7 +39,7 @@ type WriterReporter struct {
 
 // Report printf's the error using %s, then writes it to the
 // underlying writer
-func (wr *WriterReporter) Report(_ context.Context, err *error.Error) {
+func (wr *WriterReporter) Report(_ context.Context, err *Error) {
 	if wr.Writer == nil {
 		return
 	}
