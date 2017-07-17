@@ -26,24 +26,24 @@ type BugsnagReporter struct {
 
 	Backup ErrorReporter
 }
-type bugsnagMetadata struct {
-	errorClass    string
-	context       string
-	groupingHash  string
-	severity      string
-	eventMetadata *map[string]interface{}
+type BugsnagMetadata struct {
+	ErrorClass    string
+	Context       string
+	GroupingHash  string
+	Severity      string
+	EventMetadata *map[string]interface{}
 }
 
-func (metadata *bugsnagMetadata) populateMetadata(err *Error) {
-	if metadata.errorClass == "" {
-		metadata.errorClass = reflect.TypeOf(err).String()
+func (metadata *BugsnagMetadata) populateMetadata(err *Error) {
+	if metadata.ErrorClass == "" {
+		metadata.ErrorClass = reflect.TypeOf(err).String()
 	}
-	if metadata.severity == "" {
-		metadata.severity = "error"
+	if metadata.Severity == "" {
+		metadata.Severity = "error"
 	}
 }
 
-func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interface{}, metadata *bugsnagMetadata) {
+func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interface{}, metadata *BugsnagMetadata) {
 	payload := er.newPayload(NewError(newErr), metadata)
 
 	var b bytes.Buffer
@@ -84,10 +84,10 @@ func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interf
 }
 
 func (er *BugsnagReporter) Report(ctx context.Context, newErr interface{}) {
-	er.ReportWithMetadata(ctx, newErr, &bugsnagMetadata{})
+	er.ReportWithMetadata(ctx, newErr, &BugsnagMetadata{})
 }
 
-func (er *BugsnagReporter) newPayload(err *Error, metadata *bugsnagMetadata) *map[string]interface{} {
+func (er *BugsnagReporter) newPayload(err *Error, metadata *BugsnagMetadata) *map[string]interface{} {
 	metadata.populateMetadata(err)
 
 	return &map[string]interface{}{
@@ -105,19 +105,19 @@ func (er *BugsnagReporter) newPayload(err *Error, metadata *bugsnagMetadata) *ma
 	}
 }
 
-func (er *BugsnagReporter) newEvent(err *Error, metadata *bugsnagMetadata) *map[string]interface{} {
+func (er *BugsnagReporter) newEvent(err *Error, metadata *BugsnagMetadata) *map[string]interface{} {
 	host, _ := os.Hostname()
 
 	event := map[string]interface{}{
 		"PayloadVersion": "2",
 		"exceptions": []*map[string]interface{}{
 			{
-				"errorClass": metadata.errorClass,
+				"errorClass": metadata.ErrorClass,
 				"message":    err.Error(),
 				"stacktrace": formatStack(err.Stacktrace),
 			},
 		},
-		"severity": metadata.severity,
+		"severity": metadata.Severity,
 		"app": &map[string]interface{}{
 			"releaseStage": er.ReleaseStage,
 		},
@@ -126,16 +126,16 @@ func (er *BugsnagReporter) newEvent(err *Error, metadata *bugsnagMetadata) *map[
 		},
 	}
 
-	if "" != metadata.groupingHash {
-		event["groupingHash"] = metadata.groupingHash
+	if "" != metadata.GroupingHash {
+		event["groupingHash"] = metadata.GroupingHash
 	}
 
-	if "" != metadata.context {
-		event["context"] = metadata.context
+	if "" != metadata.Context {
+		event["context"] = metadata.Context
 	}
 
-	if !IsZeroInterface(metadata.eventMetadata) {
-		event["metaData"] = metadata.eventMetadata
+	if !IsZeroInterface(metadata.EventMetadata) {
+		event["metaData"] = metadata.EventMetadata
 	}
 
 	return &event

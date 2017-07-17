@@ -23,9 +23,9 @@ func TestErrorReporter(t *testing.T) {
 
 	er.Report(context.Background(), errors.New("bugsnag error test"))
 
-	er.ReportWithMetadata(context.Background(), NewError("bugsnag test"), &bugsnagMetadata{
-		groupingHash: "net.timeout",
-		eventMetadata: &map[string]interface{}{
+	er.ReportWithMetadata(context.Background(), NewError("bugsnag test"), &BugsnagMetadata{
+		GroupingHash: "net.timeout",
+		EventMetadata: &map[string]interface{}{
 			"data": map[string]interface{}{
 				"os": runtime.GOOS,
 			},
