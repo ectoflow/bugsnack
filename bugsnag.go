@@ -108,6 +108,10 @@ func (er *BugsnagReporter) newPayload(err error, metadata *BugsnagMetadata) *map
 }
 
 func (er *BugsnagReporter) newEvent(err error, metadata *BugsnagMetadata) *map[string]interface{} {
+	type stackTracer interface {
+		StackTrace() errors.StackTrace
+	}
+
 	host, _ := os.Hostname()
 
 	errorWithStack, ok := err.(stackTracer)
