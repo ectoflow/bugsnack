@@ -58,7 +58,7 @@ func main() {
 
 # Metadata Support
 
-You may provide optional `errorClass`, `context`, `groupingHash`, `severity` and arbitrary `eventMetadata`:
+You may provide optional `ErrorClass`, `Context`, `GroupingHash`, `Severity` and arbitrary `EventMetadata`:
 
 ```go
 import "runtime"
@@ -67,20 +67,20 @@ func Work(er bugsnack.ErrorReporter) {
     for {
         _, err := DoSomethingThatMightBreak()
         if err != nil {
-            er.ReportWithMetadata(context.TODO(), err, &bugsnagMetadata{
-                errorClass: "network.timeout",
-                context: "fetchWorker",
-                groupingHash: "timeouts", // https://docs.bugsnag.com/product/error-grouping/#custom-grouping-hash
-                severity: "info",
-                eventMetadata: &hashstruct.Hash{
-                    "data": hashstruct.Hash{
+            er.Report(context.TODO(), err, &bugsnack.BugsnagMetadata{
+                ErrorClass: "network.timeout",
+                Context: "fetchWorker",
+                GroupingHash: "timeouts", // https://docs.bugsnag.com/product/error-grouping/#custom-grouping-hash
+                Severity: "info",
+                EventMetadata: &map[string]interface{}{
+                    "data": map[string]interface{}{
                         "os": runtime.GOOS,
                     },
                     "key1": "value1",
                     "key2": "value2",
-                    "arbitraryData": hashstruct.Hash{
+                    "arbitraryData": map[string]interface{}{
                         "goVersion": runtime.Version(),
-                        "nested": hashstruct.Hash{
+                        "nested": map[string]interface{}{
                             "nestedKey": "value",
                         },
                     },

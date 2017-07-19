@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"io"
 	"sync"
-
-	"github.com/fromatob/bugsnack/error"
 )
 
 // An ErrorReporter is used to Report errors
 type ErrorReporter interface {
-	Report(ctx context.Context, err interface{})
+	Report(ctx context.Context, err error, metadata ...interface{})
 }
 
 // A MultiReporter is capable of sending a single error
@@ -22,7 +20,7 @@ type MultiReporter struct {
 
 // Report sends the same error to all underlying Reporters
 // concurrently.
-func (mr *MultiReporter) Report(ctx context.Context, err interface{}) {
+func (mr *MultiReporter) Report(ctx context.Context, err error, metadata ...interface{}) {
 	var wg sync.WaitGroup
 	for _, er := range mr.Reporters {
 		wg.Add(1)
@@ -41,7 +39,7 @@ type WriterReporter struct {
 
 // Report printf's the error using %s, then writes it to the
 // underlying writer
-func (wr *WriterReporter) Report(_ context.Context, err *error.Error) {
+func (wr *WriterReporter) Report(_ context.Context, err error, metadata ...interface{}) {
 	if wr.Writer == nil {
 		return
 	}

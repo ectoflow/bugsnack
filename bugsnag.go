@@ -12,12 +12,10 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/fromatob/bugsnack/error"
-	"github.com/fromatob/bugsnack/hashstruct"
-	"github.com/fromatob/bugsnack/internal/stack"
+	"github.com/pkg/errors"
 )
 
-const clientVersion = "0.0.2"
+const clientVersion = "0.0.3"
 
 // BugsnagReporter is an implementation of ErrorReporter that fires to
 // BugSnag
@@ -28,26 +26,32 @@ type BugsnagReporter struct {
 
 	Backup ErrorReporter
 }
-type bugsnagMetadata struct {
-	errorClass    string
-	context       string
-	groupingHash  string
-	severity      string
-	eventMetadata *hashstruct.Hash
+type BugsnagMetadata struct {
+	ErrorClass    string
+	Context       string
+	GroupingHash  string
+	Severity      string
+	EventMetadata *map[string]interface{}
 }
 
-func (metadata *bugsnagMetadata) populateMetadata(err *error.Error) {
-	if metadata.errorClass == "" {
-		metadata.errorClass = reflect.TypeOf(err).String()
+func (metadata *BugsnagMetadata) populateMetadata(err error) {
+	if metadata.ErrorClass == "" {
+		metadata.ErrorClass = reflect.TypeOf(err).String()
 	}
-	if metadata.severity == "" {
-		metadata.severity = "error"
+	if metadata.Severity == "" {
+		metadata.Severity = "error"
 	}
 }
 
-func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interface{}, metadata *bugsnagMetadata) {
-	payload := er.newPayload(error.New(newErr), metadata)
+func (er *BugsnagReporter) Report(ctx context.Context, newErr error, meta ...interface{}) {
+	newErr = errors.WithStack(newErr)
+	metadata := &BugsnagMetadata{}
 
+	if len(meta) > 0 {
+		metadata = meta[0].(*BugsnagMetadata)
+	}
+
+	payload := er.newPayload(newErr, metadata)
 	var b bytes.Buffer
 	err := json.NewEncoder(&b).Encode(payload)
 	if err != nil {
@@ -80,75 +84,80 @@ func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interf
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		er.Backup.Report(ctx, error.New("could not report to bugsnag"))
+		er.Backup.Report(ctx, errors.New("could not report to bugsnag"))
 		return
 	}
 }
 
-func (er *BugsnagReporter) Report(ctx context.Context, newErr interface{}) {
-	er.ReportWithMetadata(ctx, newErr, &bugsnagMetadata{})
-}
-
-func (er *BugsnagReporter) newPayload(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
+func (er *BugsnagReporter) newPayload(err error, metadata *BugsnagMetadata) *map[string]interface{} {
 	metadata.populateMetadata(err)
 
-	return &hashstruct.Hash{
+	return &map[string]interface{}{
 		"apiKey": er.APIKey,
 
-		"notifier": &hashstruct.Hash{
+		"notifier": &map[string]interface{}{
 			"name":    "Bugsnack/Bugsnag",
 			"url":     "https://github.com/fromatob/bugsnack",
 			"version": clientVersion,
 		},
 
-		"events": []*hashstruct.Hash{
+		"events": []*map[string]interface{}{
 			er.newEvent(err, metadata),
 		},
 	}
 }
 
-func (er *BugsnagReporter) newEvent(err *error.Error, metadata *bugsnagMetadata) *hashstruct.Hash {
-	host, _ := os.Hostname()
+func (er *BugsnagReporter) newEvent(err error, metadata *BugsnagMetadata) *map[string]interface{} {
+	type stackTracer interface {
+		StackTrace() errors.StackTrace
+	}
 
-	event := hashstruct.Hash{
+	host, _ := os.Hostname()
+	stacktrace := err.(stackTracer).StackTrace()[1:]
+
+	event := map[string]interface{}{
 		"PayloadVersion": "2",
-		"exceptions": []*hashstruct.Hash{
+		"exceptions": []*map[string]interface{}{
 			{
-				"errorClass": metadata.errorClass,
+				"errorClass": metadata.ErrorClass,
 				"message":    err.Error(),
-				"stacktrace": formatStack(err.Stacktrace),
+				"stacktrace": formatStack(stacktrace),
 			},
 		},
-		"severity": metadata.severity,
-		"app": &hashstruct.Hash{
+		"severity": metadata.Severity,
+		"app": &map[string]interface{}{
 			"releaseStage": er.ReleaseStage,
 		},
-		"device": &hashstruct.Hash{
+		"device": &map[string]interface{}{
 			"hostname": host,
 		},
 	}
 
-	if "" != metadata.groupingHash {
-		event["groupingHash"] = metadata.groupingHash
+	if "" != metadata.GroupingHash {
+		event["groupingHash"] = metadata.GroupingHash
 	}
 
-	if "" != metadata.context {
-		event["context"] = metadata.context
+	if "" != metadata.Context {
+		event["context"] = metadata.Context
 	}
 
-	if !metadata.eventMetadata.IsZeroInterface() {
-		event["metaData"] = metadata.eventMetadata
+	if !IsZeroInterface(metadata.EventMetadata) {
+		event["metaData"] = metadata.EventMetadata
 	}
 
 	return &event
 }
 
-func formatStack(s stack.CallStack) []hashstruct.Hash {
-	var o []hashstruct.Hash
+func IsZeroInterface(i interface{}) bool {
+	return i == reflect.Zero(reflect.TypeOf(i)).Interface()
+}
+
+func formatStack(s errors.StackTrace) []map[string]interface{} {
+	var o []map[string]interface{}
 
 	for _, f := range s {
 		line, _ := strconv.Atoi(fmt.Sprintf("%d", f))
-		o = append(o, hashstruct.Hash{
+		o = append(o, map[string]interface{}{
 			"method":     fmt.Sprintf("%n", f),
 			"file":       fmt.Sprintf("%s", f),
 			"lineNumber": line,
