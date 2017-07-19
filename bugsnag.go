@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/fromatob/bugsnack/internal/stack"
+	"github.com/pkg/errors"
 )
 
 const clientVersion = "0.0.2"
@@ -34,7 +34,7 @@ type BugsnagMetadata struct {
 	EventMetadata *map[string]interface{}
 }
 
-func (metadata *BugsnagMetadata) populateMetadata(err *Error) {
+func (metadata *BugsnagMetadata) populateMetadata(err error) {
 	if metadata.ErrorClass == "" {
 		metadata.ErrorClass = reflect.TypeOf(err).String()
 	}
@@ -43,8 +43,8 @@ func (metadata *BugsnagMetadata) populateMetadata(err *Error) {
 	}
 }
 
-func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interface{}, metadata *BugsnagMetadata) {
-	payload := er.newPayload(NewError(newErr), metadata)
+func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr error, metadata *BugsnagMetadata) {
+	payload := er.newPayload(newErr, metadata)
 
 	var b bytes.Buffer
 	err := json.NewEncoder(&b).Encode(payload)
@@ -83,11 +83,11 @@ func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr interf
 	}
 }
 
-func (er *BugsnagReporter) Report(ctx context.Context, newErr interface{}) {
-	er.ReportWithMetadata(ctx, newErr, &BugsnagMetadata{})
+func (er *BugsnagReporter) Report(ctx context.Context, err error) {
+	er.ReportWithMetadata(ctx, err, &BugsnagMetadata{})
 }
 
-func (er *BugsnagReporter) newPayload(err *Error, metadata *BugsnagMetadata) *map[string]interface{} {
+func (er *BugsnagReporter) newPayload(err error, metadata *BugsnagMetadata) *map[string]interface{} {
 	metadata.populateMetadata(err)
 
 	return &map[string]interface{}{
@@ -105,8 +105,14 @@ func (er *BugsnagReporter) newPayload(err *Error, metadata *BugsnagMetadata) *ma
 	}
 }
 
-func (er *BugsnagReporter) newEvent(err *Error, metadata *BugsnagMetadata) *map[string]interface{} {
+func (er *BugsnagReporter) newEvent(err error, metadata *BugsnagMetadata) *map[string]interface{} {
 	host, _ := os.Hostname()
+
+	errorWithStack, ok := err.(stackTracer)
+	if !ok {
+		panic("err does not implement stackTracer")
+	}
+	stacktrace := errorWithStack.StackTrace()[1:]
 
 	event := map[string]interface{}{
 		"PayloadVersion": "2",
@@ -114,7 +120,7 @@ func (er *BugsnagReporter) newEvent(err *Error, metadata *BugsnagMetadata) *map[
 			{
 				"errorClass": metadata.ErrorClass,
 				"message":    err.Error(),
-				"stacktrace": formatStack(err.Stacktrace),
+				"stacktrace": formatStack(stacktrace),
 			},
 		},
 		"severity": metadata.Severity,
@@ -145,7 +151,7 @@ func IsZeroInterface(i interface{}) bool {
 	return i == reflect.Zero(reflect.TypeOf(i)).Interface()
 }
 
-func formatStack(s stack.CallStack) []map[string]interface{} {
+func formatStack(s errors.StackTrace) []map[string]interface{} {
 	var o []map[string]interface{}
 
 	for _, f := range s {

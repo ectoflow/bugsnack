@@ -2,7 +2,6 @@ package bugsnack
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"os"
 	"runtime"
@@ -21,7 +20,7 @@ func TestErrorReporter(t *testing.T) {
 		Backup:       nil,
 	}
 
-	er.Report(context.Background(), errors.New("bugsnag error test"))
+	er.Report(context.Background(), NewError("bugsnag error test"))
 
 	er.ReportWithMetadata(context.Background(), NewError("bugsnag test"), &BugsnagMetadata{
 		GroupingHash: "net.timeout",

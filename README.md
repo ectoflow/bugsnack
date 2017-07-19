@@ -32,7 +32,7 @@ func Work(er bugsnack.ErrorReporter) {
     for {
         _, err := DoSomethingThatMightBreak()
         if err != nil {
-            er.Report(context.TODO(), err)
+            er.Report(context.TODO(), bugsnack.NewError(err))
             continue
         }
         time.Sleep(time.Second)
@@ -58,7 +58,7 @@ func main() {
 
 # Metadata Support
 
-You may provide optional `errorClass`, `context`, `groupingHash`, `severity` and arbitrary `eventMetadata`:
+You may provide optional `ErrorClass`, `Context`, `GroupingHash`, `Severity` and arbitrary `EventMetadata`:
 
 ```go
 import "runtime"
@@ -67,12 +67,12 @@ func Work(er bugsnack.ErrorReporter) {
     for {
         _, err := DoSomethingThatMightBreak()
         if err != nil {
-            er.ReportWithMetadata(context.TODO(), err, &bugsnack.BugsnagMetadata{
-                errorClass: "network.timeout",
-                context: "fetchWorker",
-                groupingHash: "timeouts", // https://docs.bugsnag.com/product/error-grouping/#custom-grouping-hash
-                severity: "info",
-                eventMetadata: &map[string]interface{}{
+            er.ReportWithMetadata(context.TODO(), bugsnack.NewError(err), &bugsnack.BugsnagMetadata{
+                ErrorClass: "network.timeout",
+                Context: "fetchWorker",
+                GroupingHash: "timeouts", // https://docs.bugsnag.com/product/error-grouping/#custom-grouping-hash
+                Severity: "info",
+                EventMetadata: &map[string]interface{}{
                     "data": map[string]interface{}{
                         "os": runtime.GOOS,
                     },
