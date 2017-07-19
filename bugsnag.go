@@ -113,12 +113,7 @@ func (er *BugsnagReporter) newEvent(err error, metadata *BugsnagMetadata) *map[s
 	}
 
 	host, _ := os.Hostname()
-
-	errorWithStack, ok := err.(stackTracer)
-	if !ok {
-		panic("err does not implement stackTracer")
-	}
-	stacktrace := errorWithStack.StackTrace()[1:]
+	stacktrace := err.(stackTracer).StackTrace()[1:]
 
 	event := map[string]interface{}{
 		"PayloadVersion": "2",
