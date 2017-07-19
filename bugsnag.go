@@ -43,9 +43,15 @@ func (metadata *BugsnagMetadata) populateMetadata(err error) {
 	}
 }
 
-func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr error, metadata *BugsnagMetadata) {
-	payload := er.newPayload(newErr, metadata)
+func (er *BugsnagReporter) Report(ctx context.Context, newErr error, meta ...interface{}) {
+	newErr = errors.WithStack(newErr)
+	metadata := &BugsnagMetadata{}
 
+	if len(meta) > 0 {
+		metadata = meta[0].(*BugsnagMetadata)
+	}
+
+	payload := er.newPayload(newErr, metadata)
 	var b bytes.Buffer
 	err := json.NewEncoder(&b).Encode(payload)
 	if err != nil {
@@ -78,13 +84,9 @@ func (er *BugsnagReporter) ReportWithMetadata(ctx context.Context, newErr error,
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		er.Backup.Report(ctx, NewError("could not report to bugsnag"))
+		er.Backup.Report(ctx, errors.New("could not report to bugsnag"))
 		return
 	}
-}
-
-func (er *BugsnagReporter) Report(ctx context.Context, err error) {
-	er.ReportWithMetadata(ctx, err, &BugsnagMetadata{})
 }
 
 func (er *BugsnagReporter) newPayload(err error, metadata *BugsnagMetadata) *map[string]interface{} {
