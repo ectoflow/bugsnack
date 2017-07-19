@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const clientVersion = "0.0.2"
+const clientVersion = "0.0.3"
 
 // BugsnagReporter is an implementation of ErrorReporter that fires to
 // BugSnag
